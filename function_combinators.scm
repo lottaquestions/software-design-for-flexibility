@@ -153,3 +153,72 @@
  'a 'b 'c)
 
 ;;Value: ((foo a b c) (bar a b c))
+
+
+;; A small library
+
+(define (list-remove lst index)
+  (let lp ((lst lst) (index index))
+    (if (= index 0)
+	(cdr lst)
+	(cons (car lst) (lp (cdr lst) (- index 1))))))
+
+;;Test
+(list-remove '(1 2 3 4 5 6) 3)
+
+;;Value: (1 2 3 5 6)
+
+
+(define (discard-argument i)
+  (assert (exact-nonnegative-integer? i))
+  (lambda (f)
+    (let ((m (+ (get-arity f) 1)))
+      (define (the-combination . args)
+	(assert (= (length args) m ))
+	(apply f (list-remove args i)))
+      (assert (< i m))
+      (restrict-arity the-combination m))))
+
+;;Test
+(((discard-argument 2)
+  (lambda (x y z) (list 'foo x y z)))
+ 'a 'b 'c 'd)
+;;Value: (foo a b d)
+
+(define ((curry-argument i) . args)
+  (lambda (f)
+    (assert (= (length args) (- (get-arity f) 1)))
+    (lambda (x)
+      (apply f (list-insert args i x)))))
+
+(define (list-insert lst index value)
+  (let lp ((lst lst) (index index))
+    (if (= index 0)
+	(cons value lst)
+	(cons (car lst) (lp (cdr lst) (- index 1))))))
+
+;;Test
+((((curry-argument 2) 'a 'b 'c)
+  (lambda (x y z w) (list 'foo x y z w)))
+ 'd)
+;;Value: (foo a b d c)
+
+(define (permute-arguments . permspec)
+  (let ((permute (make-permuation permspec)))
+    (lambda (f)
+      (define (the-combination . args)
+	(apply f (permute args)))
+      (let ((n (get-arity f)))
+	(assert (= n (length permspec)))
+	(restrict-arity the-combination n)))))
+
+(define (make-permuation permspec)
+  (define (the-permuter lst)
+    (map (lambda (p) (list-ref lst p)) permspec))
+  the-permuter)
+
+;;Test
+(((permute-arguments 1 2 0 3)
+  (lambda (x y z w) (list 'foo x y z w)))
+ 'a 'b 'c 'd)
+;;Value: (foo b c a d)
